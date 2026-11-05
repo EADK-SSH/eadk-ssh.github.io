@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EADK SSH Bridge · 串口 / SSH 统一调试桥</title>
+  <meta name="description" content="EADK SSH Bridge：把本机串口与远端 SSH 统一成 Web 终端 + HTTP Agent API + 共享入站 SSH。人与 AI 并行控板，含 Share/TFTP/NFS、继电器与隧道。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="url(#lg)"/><path d="M7 14h14M14 8v12" stroke="#fff" stroke-width="2" stroke-linecap="round"/><defs><linearGradient id="lg" x1="4" y1="4" x2="24" y2="24"><stop stop-color="#0284C7"/><stop offset="1" stop-color="#059669"/></linearGradient></defs></svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">EADK SSH Bridge</span>
+          <span class="brand-sub">Embedded AI Development Kit · 组件</span>
+        </span>
+      </a>
+      <nav class="header-nav">
+        <a href="#highlights">亮点</a>
+        <a href="#architecture">框架图</a>
+        <a href="#capabilities">能力</a>
+        <a href="#downloads">下载</a>
+      </nav>
+      <a class="btn btn-sm btn-primary" href="#downloads">下载</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <h1>串口与 SSH，<span class="grad">一张 Web 面管完</span></h1>
+        <p class="lead">
+          把本机 <strong>串口</strong> 与远端 <strong>SSH Link</strong> 统一成 Dashboard + HTTP Agent API；
+          再加共享入站 <code>ssh 板名@host</code>。人与 AI <strong>并行不互斥</strong>。
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#architecture">看框架图</a>
+          <a class="btn btn-secondary" href="#downloads">下载便携包</a>
+          <a class="btn btn-secondary" href="https://github.com/yanggan2015/ssh-bridge-c-releases/issues/new" target="_blank" rel="noreferrer">Issues</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="highlights" class="section highlights">
+      <div class="wrap">
+        <div class="highlight-grid">
+          <article class="highlight-card">
+            <span class="highlight-num">01</span>
+            <h2>人用 Web / SSH，AI 用 HTTP</h2>
+            <p class="highlight-lead">同一通道：浏览器终端旁观，Agent 走 REST/WS 发键与拉日志，互不抢占。</p>
+            <ul>
+              <li>Dashboard 多板卡会话 + 热加载</li>
+              <li>Agent：<code>/help</code> 接口文档齐全</li>
+              <li>共享入站 SSH：用户名 = 通道名</li>
+            </ul>
+          </article>
+          <article class="highlight-card accent">
+            <span class="highlight-num">02</span>
+            <h2>Share · TFTP · NFS 同根目录</h2>
+            <p class="highlight-lead">传内核 / 设备树 / ramdisk：主机 HTTP 上传，板端 TFTP 或 NFS 拉取。</p>
+            <ul>
+              <li>网页多文件拖到当前目录即传</li>
+              <li>U-Boot <code>serverip</code> → TFTP</li>
+              <li>Linux <code>mount -t nfs …:/share</code></li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="tag">Architecture</span>
+          <h2>项目框架图</h2>
+          <p>浏览器 / Agent → HttpServer → 通道注册表 → 串口或 SSH Link；入站 SSH、Share、继电器、可选 Tunnel 挂在同一进程。</p>
+        </div>
+
+        <figure class="diagram">
+          <figcaption>
+            <strong>EADK SSH Bridge · 运行时总图</strong>
+            <span>单端口 WebUI · JobRunner 后台任务 · 通道核共享日志 / 入站 fan-out</span>
+          </figcaption>
+          <div class="legend">
+            <span><i class="dot human"></i>人 · Web / 入站 SSH</span>
+            <span><i class="dot ai"></i>AI · HTTP / WS</span>
+            <span><i class="dot bridge"></i>Manager 核心</span>
+            <span><i class="dot relay"></i>继电器 / 板控</span>
+            <span><i class="dot jump"></i>可选 Tunnel</span>
+            <span><i class="dot net"></i>板卡 / 远端</span>
+          </div>
+          <div class="svg-box">
+            <svg viewBox="0 0 960 700" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SSH Bridge 框架图">
+              <defs>
+                <marker id="mk-h" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#7c3aed"/></marker>
+                <marker id="mk-a" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#059669"/></marker>
+                <marker id="mk-b" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#0284c7"/></marker>
+                <marker id="mk-r" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#d97706"/></marker>
+                <marker id="mk-j" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#ca8a04"/></marker>
+              </defs>
+              <rect width="960" height="700" fill="#fafbfc" rx="8"/>
+
+              <!-- Clients -->
+              <rect x="40" y="20" width="880" height="88" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+              <text x="60" y="44" fill="#64748b" font-size="11" font-weight="700">客户端 · 人 × AI</text>
+              <rect x="80" y="56" width="150" height="40" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+              <text x="155" y="81" text-anchor="middle" fill="#7c3aed" font-size="13" font-weight="700">人 · Browser</text>
+              <rect x="250" y="56" width="150" height="40" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+              <text x="325" y="81" text-anchor="middle" fill="#7c3aed" font-size="13" font-weight="700">人 · OpenSSH</text>
+              <rect x="420" y="56" width="160" height="40" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+              <text x="500" y="81" text-anchor="middle" fill="#059669" font-size="13" font-weight="700">AI · HTTP / WS</text>
+              <rect x="600" y="56" width="280" height="40" rx="8" fill="#fff" stroke="#cbd5e1"/>
+              <text x="740" y="81" text-anchor="middle" fill="#475569" font-size="12" font-weight="600">并行不互斥 · 同通道旁观</text>
+
+              <!-- Manager box -->
+              <rect x="40" y="140" width="880" height="360" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+              <text x="60" y="164" fill="#0284c7" font-size="11" font-weight="700">ssh_bridge_manager · 本机进程（Win 可用 desktop 托盘壳）</text>
+
+              <!-- HttpServer -->
+              <rect x="60" y="180" width="280" height="100" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+              <text x="200" y="208" text-anchor="middle" fill="#0284c7" font-size="14" font-weight="700">HttpServer</text>
+              <text x="200" y="228" text-anchor="middle" fill="#475569" font-size="11">Dashboard · /help · WS 终端</text>
+              <text x="200" y="248" text-anchor="middle" fill="#64748b" font-size="11">JobRunner：继电器 / 上传 / 脚本</text>
+              <text x="200" y="266" text-anchor="middle" fill="#64748b" font-size="10">默认 :18081</text>
+
+              <!-- Inbound -->
+              <rect x="360" y="180" width="240" height="100" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+              <text x="480" y="208" text-anchor="middle" fill="#7c3aed" font-size="14" font-weight="700">InboundGateway</text>
+              <text x="480" y="230" text-anchor="middle" fill="#475569" font-size="11">共享入站 SSH</text>
+              <text x="480" y="250" text-anchor="middle" fill="#64748b" font-size="11">user = 通道名 · :2222</text>
+              <text x="480" y="268" text-anchor="middle" fill="#64748b" font-size="10">fan-out → ChannelCore</text>
+
+              <!-- Share stack -->
+              <rect x="620" y="180" width="280" height="100" rx="10" fill="#fff" stroke="#0284c7" stroke-width="1.5"/>
+              <text x="760" y="208" text-anchor="middle" fill="#0284c7" font-size="14" font-weight="700">Share / TFTP / NFS</text>
+              <text x="760" y="230" text-anchor="middle" fill="#475569" font-size="11">同根 {work}/share</text>
+              <text x="760" y="250" text-anchor="middle" fill="#64748b" font-size="11">HTTP 上传 · 板端拉取</text>
+              <text x="760" y="268" text-anchor="middle" fill="#64748b" font-size="10">板名目录 + common/</text>
+
+              <!-- Channel registry -->
+              <rect x="60" y="310" width="840" height="170" rx="10" fill="#fff" stroke="#0284c7" stroke-width="1.5"/>
+              <text x="80" y="334" fill="#0284c7" font-size="12" font-weight="700">ChannelRegistry · name → Channel*</text>
+
+              <rect x="80" y="350" width="250" height="110" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+              <text x="205" y="378" text-anchor="middle" fill="#0284c7" font-size="13" font-weight="700">SerialBackend</text>
+              <text x="205" y="400" text-anchor="middle" fill="#475569" font-size="11">COM / tty</text>
+              <text x="205" y="420" text-anchor="middle" fill="#64748b" font-size="10">波特率 · DTR/RTS</text>
+              <text x="205" y="440" text-anchor="middle" fill="#64748b" font-size="10">boards[]</text>
+
+              <rect x="350" y="350" width="250" height="110" rx="8" fill="#ecfdf5" stroke="#059669"/>
+              <text x="475" y="378" text-anchor="middle" fill="#059669" font-size="13" font-weight="700">SshLinkBackend</text>
+              <text x="475" y="400" text-anchor="middle" fill="#475569" font-size="11">出站 libssh PTY</text>
+              <text x="475" y="420" text-anchor="middle" fill="#64748b" font-size="10">target_host:port</text>
+              <text x="475" y="440" text-anchor="middle" fill="#64748b" font-size="10">ssh[]</text>
+
+              <rect x="620" y="350" width="260" height="110" rx="8" fill="#fffbeb" stroke="#d97706"/>
+              <text x="750" y="378" text-anchor="middle" fill="#d97706" font-size="13" font-weight="700">ChannelCore</text>
+              <text x="750" y="400" text-anchor="middle" fill="#475569" font-size="11">环形日志 · cmdq</text>
+              <text x="750" y="420" text-anchor="middle" fill="#64748b" font-size="10">buttons / 继电器</text>
+              <text x="750" y="440" text-anchor="middle" fill="#64748b" font-size="10">kick · notify_seq</text>
+
+              <!-- Tunnel optional -->
+              <rect x="40" y="520" width="280" height="56" rx="10" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5" stroke-dasharray="5 3"/>
+              <text x="180" y="544" text-anchor="middle" fill="#a16207" font-size="13" font-weight="700">Tunnel（可选）</text>
+              <text x="180" y="562" text-anchor="middle" fill="#64748b" font-size="10">映 HTTP / 入站 SSH → 公网</text>
+
+              <!-- Targets -->
+              <rect x="340" y="520" width="280" height="56" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+              <text x="480" y="544" text-anchor="middle" fill="#c2410c" font-size="13" font-weight="700">板卡 × N · 串口</text>
+              <text x="480" y="562" text-anchor="middle" fill="#64748b" font-size="10">物理 COM / USB-UART</text>
+
+              <rect x="640" y="520" width="280" height="56" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+              <text x="780" y="544" text-anchor="middle" fill="#c2410c" font-size="13" font-weight="700">远端设备 · SSH</text>
+              <text x="780" y="562" text-anchor="middle" fill="#64748b" font-size="10">开发板 / 服务器 shell</text>
+
+              <!-- arrows clients → manager -->
+              <line x1="155" y1="96" x2="155" y2="130" stroke="#7c3aed" stroke-width="1.5"/>
+              <line x1="155" y1="130" x2="200" y2="130" stroke="#7c3aed" stroke-width="1.5"/>
+              <line x1="200" y1="130" x2="200" y2="178" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#mk-h)"/>
+
+              <line x1="325" y1="96" x2="325" y2="130" stroke="#7c3aed" stroke-width="1.5"/>
+              <line x1="325" y1="130" x2="480" y2="130" stroke="#7c3aed" stroke-width="1.5"/>
+              <line x1="480" y1="130" x2="480" y2="178" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#mk-h)"/>
+
+              <line x1="500" y1="96" x2="500" y2="118" stroke="#059669" stroke-width="1.5"/>
+              <line x1="500" y1="118" x2="220" y2="118" stroke="#059669" stroke-width="1.5"/>
+              <line x1="220" y1="118" x2="220" y2="178" stroke="#059669" stroke-width="1.5" marker-end="url(#mk-a)"/>
+
+              <!-- http → channels -->
+              <line x1="200" y1="280" x2="200" y2="308" stroke="#0284c7" stroke-width="1.5" marker-end="url(#mk-b)"/>
+              <line x1="480" y1="280" x2="480" y2="308" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#mk-h)"/>
+              <line x1="760" y1="280" x2="760" y2="348" stroke="#0284c7" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+              <!-- backends → targets -->
+              <line x1="205" y1="460" x2="205" y2="500" stroke="#0284c7" stroke-width="1.5"/>
+              <line x1="205" y1="500" x2="480" y2="500" stroke="#0284c7" stroke-width="1.5"/>
+              <line x1="480" y1="500" x2="480" y2="518" stroke="#0284c7" stroke-width="1.5" marker-end="url(#mk-b)"/>
+
+              <line x1="475" y1="460" x2="475" y2="490" stroke="#059669" stroke-width="1.5"/>
+              <line x1="475" y1="490" x2="780" y2="490" stroke="#059669" stroke-width="1.5"/>
+              <line x1="780" y1="490" x2="780" y2="518" stroke="#059669" stroke-width="1.5" marker-end="url(#mk-a)"/>
+
+              <line x1="750" y1="460" x2="750" y2="480" stroke="#d97706" stroke-width="1.2"/>
+              <line x1="750" y1="480" x2="180" y2="480" stroke="#d97706" stroke-width="1.2" stroke-dasharray="4 3"/>
+              <line x1="180" y1="480" x2="180" y2="518" stroke="#d97706" stroke-width="1.2" marker-end="url(#mk-r)"/>
+
+              <!-- tunnel note -->
+              <line x1="200" y1="500" x2="200" y2="518" stroke="#ca8a04" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#mk-j)"/>
+
+              <text x="480" y="610" text-anchor="middle" fill="#64748b" font-size="12">
+                <tspan fill="#0284c7" font-weight="700">数据面</tspan>
+                <tspan>：WS / 串口低延迟 · </tspan>
+                <tspan fill="#d97706" font-weight="700">控制面</tspan>
+                <tspan>：JobRunner 不堵事件循环 · </tspan>
+                <tspan fill="#7c3aed" font-weight="700">入站</tspan>
+                <tspan>：仅共享口</tspan>
+              </text>
+              <text x="480" y="640" text-anchor="middle" fill="#94a3b8" font-size="11">Windows：ssh_bridge_desktop 托盘 + WebView · Linux：浏览器打开 Dashboard</text>
+              <text x="480" y="668" text-anchor="middle" fill="#94a3b8" font-size="11">UDP 发现 EADK1@18071 · 局域网 windows_manager 可扫到本机</text>
+            </svg>
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <section id="capabilities" class="section bg-subtle">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="tag">Capabilities</span>
+          <h2>核心能力</h2>
+          <p>面向板卡实验室与 AI Agent 协同调试。</p>
+        </div>
+        <div class="product-grid">
+          <article class="product-card bridge">
+            <h3>双通道后端</h3>
+            <p class="sub">serial · ssh_link</p>
+            <ul>
+              <li>串口：COM/tty，会话保持与自动跟随</li>
+              <li>SSH Link：出站连板/服务器</li>
+              <li>统一按钮：命令或继电器</li>
+            </ul>
+          </article>
+          <article class="product-card bridge">
+            <h3>文件与启动</h3>
+            <p class="sub">Share · TFTP · NFS</p>
+            <ul>
+              <li>网页多选上传到当前目录</li>
+              <li>U-Boot TFTP 加载内核/DTB/ramdisk</li>
+              <li>板端 NFS mount 同根目录</li>
+            </ul>
+          </article>
+          <article class="product-card relay">
+            <h3>板控与继电器</h3>
+            <p class="sub">电源 · 重启 · Upgrade</p>
+            <ul>
+              <li>通道按钮绑命令或继电器</li>
+              <li>同 id 互斥，避免误触</li>
+              <li>配置页可视化管理</li>
+            </ul>
+          </article>
+          <article class="product-card bridge">
+            <h3>Agent 友好</h3>
+            <p class="sub">HTTP API · Skills · 发现</p>
+            <ul>
+              <li><code>/help</code> 接口说明</li>
+              <li><code>share/tools</code> · <code>share/skills</code></li>
+              <li>局域网 UDP 发现应答</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="downloads" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <span class="tag">Downloads</span>
+          <h2>下载</h2>
+          <p>公开发行仓提供 Windows / Linux 便携包与安装包。</p>
+        </div>
+        <div class="download-list">
+          <div class="dl-card">
+            <div class="dl-icon bridge">S</div>
+            <div class="dl-body">
+              <strong>ssh-bridge Releases</strong>
+              <span>Windows zip · Linux deb/rpm · 最新构建</span>
+            </div>
+            <div class="dl-action">
+              <span class="status-pill ready">公开仓</span>
+              <a class="btn btn-download" href="https://github.com/yanggan2015/ssh-bridge-c-releases/releases" target="_blank" rel="noreferrer">打开 Releases</a>
+            </div>
+          </div>
+          <div class="dl-card">
+            <div class="dl-icon bridge">G</div>
+            <div class="dl-body">
+              <strong>组织 EADK-SSH</strong>
+              <span>产品主页与后续组件仓库入口</span>
+            </div>
+            <div class="dl-action">
+              <a class="btn btn-download" href="https://github.com/orgs/EADK-SSH/repositories" target="_blank" rel="noreferrer">浏览仓库</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="section bg-subtle">
+      <div class="wrap contact-box">
+        <div>
+          <h2>反馈与联系</h2>
+          <p>Issues 或邮件均可</p>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <a class="btn btn-secondary" href="https://github.com/yanggan2015/ssh-bridge-c-releases/issues/new" target="_blank" rel="noreferrer">Issues</a>
+          <a class="btn btn-primary" href="mailto:yanggan2015@foxmail.com">yanggan2015@foxmail.com</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">EADK SSH Bridge · <a href="https://github.com/EADK-SSH">EADK-SSH</a></div>
+  </footer>
+</body>
+</html>
