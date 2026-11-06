@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>EADK SSH Bridge · 串口 / SSH / 共享目录 统一调试桥</title>
-  <meta name="description" content="EADK SSH Bridge：人与 AI 并行控板；串口与 SSH 统一 Web；内置共享目录——网页/HTTP 上传，板端 TFTP·NFS·HTTP 拉取。">
+  <meta name="description" content="人用 Web·IDE·入站 SSH，AI 用 Agent 接口；串口与 SSH Link 控板；Share 传文件；Tunnel 远程；局域网发现扫描。">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -37,10 +37,11 @@
   <main>
     <section class="hero">
       <div class="wrap hero-inner">
-        <h1>控板 + 传文件，<span class="grad">一个工具全包</span></h1>
+        <h1>本地也能控，远程也能控</h1>
         <p class="lead">
-          <strong>串口 / SSH</strong> 给人用 Web、给 AI 用 HTTP；再加<strong>共享目录</strong>：人与 Agent 网页或 HTTP 上传，
-          板子用 <strong>TFTP / NFS / HTTP</strong> 拉到本地。启动前也能调，并行不互斥。
+          <strong>人</strong>走 Web / IDE / 入站 SSH；<strong>AI</strong>走 Agent 接口。
+          底下用<strong>串口桥 · SSH Link</strong>控受控板/主机，用<strong>Share</strong>传文件；
+          <strong>Tunnel</strong>把同一套入口映到远程；局域网还能<strong>扫描发现</strong>本机与板卡。
         </p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="#architecture">产品设计框图</a>
@@ -55,348 +56,320 @@
         <div class="highlight-grid">
           <article class="highlight-card">
             <span class="highlight-num">01</span>
-            <h2>人与 AI 同通道，并行不互斥</h2>
-            <p class="highlight-lead">人开网页看终端，AI 走 HTTP 发键 / 拉日志；还能 <code>ssh 板名@主机</code> 进来。</p>
+            <h2>接入面分清：人一条路，AI 一条路</h2>
+            <p class="highlight-lead">人用网页、IDE、入站 SSH；AI 主要用 Agent HTTP/WS。本地直连或经 Tunnel 远程，能力一样。</p>
             <ul>
-              <li>串口：无网也能进 U-Boot / 内核日志</li>
-              <li>SSH Link：网口起来后高效控板</li>
-              <li>一张 Dashboard 管多块板</li>
+              <li>控对象：串口桥 / SSH Link → 受控板或主机</li>
+              <li>入站 SSH 是<strong>人的接入通道</strong>，不是控板后端</li>
+              <li>人机同看一条会话，并行不互斥</li>
             </ul>
           </article>
           <article class="highlight-card accent">
             <span class="highlight-num">02</span>
-            <h2>共享目录：上传一次，板端多种拉法</h2>
-            <p class="highlight-lead">内核 / DTB / rootfs 放进 <code>{work}/share</code>，主机侧网页或 HTTP 上传，板侧按阶段选协议。</p>
+            <h2>Share + Tunnel + 发现，一个进程里</h2>
+            <p class="highlight-lead">上传用网页/HTTP；板用 TFTP/NFS/HTTP 拉。Tunnel 远程操控；扫描工具找本机与可发现板。</p>
             <ul>
-              <li>U-Boot → <strong>TFTP</strong>（经典 serverip）</li>
-              <li>Linux 起来 → <strong>NFS</strong> 挂载或 <strong>HTTP</strong> 下载</li>
-              <li>人与 Agent 同一目录，不另起文件服务器</li>
+              <li>Share：人与 Agent 同一目录</li>
+              <li>Tunnel：人与 AI 都能远程进</li>
+              <li>发现：UDP + windows_manager 扫描</li>
             </ul>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- 产品设计框图 -->
     <section id="architecture" class="section">
       <div class="wrap">
         <div class="section-head">
           <span class="tag">Design</span>
           <h2>产品设计框图</h2>
-          <p>人 / AI → <strong>ssh_bridge_manager</strong>（控板 + 共享目录）→ 板卡 × N。相对套件总图：本组件把 <strong>Share / TFTP / NFS / HTTP 文件通道</strong> 做进同一进程。</p>
+          <p>先分清<strong>谁接入</strong>、<strong>控谁</strong>、<strong>文件怎么走</strong>、<strong>远程怎么进</strong>、<strong>怎么被发现</strong>。一张大图把工具讲完。</p>
         </div>
 
         <figure class="diagram">
           <figcaption>
-            <strong>人 / AI → ssh-bridge → 板卡 × N</strong>
-            <span>控板：串口 · SSH Link · 入站 SSH · 继电器　｜　传文件：网页/HTTP 上传 → Share → TFTP / NFS / HTTP 下板</span>
+            <strong>接入面 → ssh_bridge_manager → 受控对象 × N</strong>
+            <span>人：Web · IDE · 入站 SSH　｜　AI：Agent 接口　｜　本地直连 = 远程经 Tunnel</span>
           </figcaption>
           <div class="legend">
-            <span><i class="dot human"></i>人 · Web / 入站 SSH</span>
-            <span><i class="dot ai"></i>AI · HTTP / WS</span>
-            <span><i class="dot bridge"></i>控板通道</span>
-            <span><i class="dot jump"></i>共享目录 Share</span>
-            <span><i class="dot relay"></i>继电器 / 板控</span>
-            <span><i class="dot net"></i>板卡拉文件</span>
+            <span><i class="dot human"></i>人的接入</span>
+            <span><i class="dot ai"></i>AI · Agent 接口</span>
+            <span><i class="dot bridge"></i>控受控对象</span>
+            <span><i class="dot jump"></i>Share 文件</span>
+            <span><i class="dot relay"></i>继电器</span>
+            <span><i class="dot net"></i>Tunnel / 发现</span>
           </div>
           <div class="svg-box">
-            <svg viewBox="0 0 920 780" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="产品设计框图">
+            <svg viewBox="0 0 960 900" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="产品设计框图">
               <defs>
                 <marker id="mk-h" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#7c3aed"/></marker>
                 <marker id="mk-a" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#059669"/></marker>
                 <marker id="mk-b" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#0284c7"/></marker>
-                <marker id="mk-r" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#d97706"/></marker>
                 <marker id="mk-s" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#ca8a04"/></marker>
                 <marker id="mk-n" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#db2777"/></marker>
+                <marker id="mk-r" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#d97706"/></marker>
               </defs>
-              <rect width="920" height="780" fill="#fafbfc" rx="8"/>
+              <rect width="960" height="900" fill="#fafbfc" rx="8"/>
 
-              <!-- L3 -->
-              <rect x="48" y="16" width="824" height="92" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
-              <text x="68" y="40" fill="#64748b" font-size="11" font-weight="700">L3 · 人 × AI（并行不互斥）</text>
-              <rect x="80" y="52" width="130" height="44" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
-              <text x="145" y="70" text-anchor="middle" fill="#7c3aed" font-size="13" font-weight="700">人</text>
-              <text x="145" y="88" text-anchor="middle" fill="#64748b" font-size="10">Web / 入站 SSH</text>
-              <rect x="230" y="52" width="130" height="44" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
-              <text x="295" y="70" text-anchor="middle" fill="#059669" font-size="13" font-weight="700">AI / Agent</text>
-              <text x="295" y="88" text-anchor="middle" fill="#64748b" font-size="10">HTTP / WS</text>
-              <rect x="390" y="52" width="460" height="44" rx="8" fill="#fff" stroke="#059669" stroke-width="1.2"/>
-              <text x="620" y="70" text-anchor="middle" fill="#059669" font-size="11" font-weight="700">同一工具里做两件事</text>
-              <text x="430" y="88" fill="#0284c7" font-size="10" font-weight="600">① 控板（串口 / SSH）</text>
-              <text x="620" y="88" fill="#ca8a04" font-size="10" font-weight="600">② 传文件（上传 Share → 板拉取）</text>
+              <!-- ===== 接入面 ===== -->
+              <rect x="40" y="16" width="880" height="148" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+              <text x="60" y="40" fill="#64748b" font-size="12" font-weight="700">① 接入面 · 人怎么进来 / AI 怎么进来（本地直连，或经下方 Tunnel 远程进来——能力相同）</text>
 
-              <!-- L2 manager -->
-              <rect x="48" y="132" width="824" height="288" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
-              <text x="68" y="156" fill="#0284c7" font-size="11" font-weight="700">L2 · ssh_bridge_manager（一个进程 · Win 可用 desktop 托盘壳）</text>
+              <rect x="60" y="56" width="520" height="92" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
+              <text x="80" y="78" fill="#7c3aed" font-size="13" font-weight="700">人的接入通道</text>
+              <rect x="80" y="92" width="140" height="40" rx="6" fill="#fff" stroke="#7c3aed"/>
+              <text x="150" y="110" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">Web 网页</text>
+              <text x="150" y="124" text-anchor="middle" fill="#64748b" font-size="9">Dashboard 终端</text>
+              <rect x="236" y="92" width="140" height="40" rx="6" fill="#fff" stroke="#7c3aed"/>
+              <text x="306" y="110" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">IDE</text>
+              <text x="306" y="124" text-anchor="middle" fill="#64748b" font-size="9">调 Agent / 脚本</text>
+              <rect x="392" y="92" width="168" height="40" rx="6" fill="#fff" stroke="#7c3aed"/>
+              <text x="476" y="110" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">入站 SSH</text>
+              <text x="476" y="124" text-anchor="middle" fill="#64748b" font-size="9">ssh 板名@主机 · 人用</text>
 
-              <!-- 控板区 -->
-              <rect x="68" y="172" width="392" height="130" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
-              <text x="264" y="194" text-anchor="middle" fill="#0284c7" font-size="13" font-weight="700">① 控板通道</text>
-              <rect x="84" y="208" width="110" height="72" rx="6" fill="#fff" stroke="#0284c7"/>
-              <text x="139" y="232" text-anchor="middle" fill="#0284c7" font-size="12" font-weight="700">串口桥</text>
-              <text x="139" y="252" text-anchor="middle" fill="#64748b" font-size="9">COM / tty</text>
-              <text x="139" y="268" text-anchor="middle" fill="#64748b" font-size="9">无网可调</text>
-              <rect x="206" y="208" width="110" height="72" rx="6" fill="#fff" stroke="#059669"/>
-              <text x="261" y="232" text-anchor="middle" fill="#059669" font-size="12" font-weight="700">SSH Link</text>
-              <text x="261" y="252" text-anchor="middle" fill="#64748b" font-size="9">出站连板</text>
-              <text x="261" y="268" text-anchor="middle" fill="#64748b" font-size="9">网口高效</text>
-              <rect x="328" y="208" width="116" height="72" rx="6" fill="#fff" stroke="#7c3aed"/>
-              <text x="386" y="232" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">入站 SSH</text>
-              <text x="386" y="252" text-anchor="middle" fill="#64748b" font-size="9">板名@主机</text>
-              <text x="386" y="268" text-anchor="middle" fill="#64748b" font-size="9">共享 :2222</text>
+              <rect x="600" y="56" width="300" height="92" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+              <text x="750" y="78" text-anchor="middle" fill="#059669" font-size="13" font-weight="700">AI 的控制界面</text>
+              <rect x="624" y="92" width="252" height="40" rx="6" fill="#fff" stroke="#059669"/>
+              <text x="750" y="110" text-anchor="middle" fill="#059669" font-size="13" font-weight="700">Agent 接口</text>
+              <text x="750" y="124" text-anchor="middle" fill="#64748b" font-size="9">HTTP / WS · /help · skills</text>
 
-              <!-- Share 区 · 优势 -->
-              <rect x="476" y="172" width="376" height="130" rx="10" fill="#fefce8" stroke="#ca8a04" stroke-width="2"/>
-              <text x="664" y="194" text-anchor="middle" fill="#a16207" font-size="13" font-weight="700">② 共享目录 Share（本仓扩展重点）</text>
-              <text x="664" y="214" text-anchor="middle" fill="#475569" font-size="10">根目录 {work}/share · 板名目录 + common/</text>
-              <rect x="492" y="226" width="100" height="56" rx="6" fill="#fff" stroke="#ca8a04"/>
-              <text x="542" y="248" text-anchor="middle" fill="#a16207" font-size="11" font-weight="700">网页上传</text>
-              <text x="542" y="266" text-anchor="middle" fill="#64748b" font-size="9">拖拽多文件</text>
-              <rect x="604" y="226" width="100" height="56" rx="6" fill="#fff" stroke="#059669"/>
-              <text x="654" y="248" text-anchor="middle" fill="#059669" font-size="11" font-weight="700">HTTP 上传</text>
-              <text x="654" y="266" text-anchor="middle" fill="#64748b" font-size="9">Agent 分片</text>
-              <rect x="716" y="226" width="120" height="56" rx="6" fill="#fff" stroke="#0284c7"/>
-              <text x="776" y="244" text-anchor="middle" fill="#0284c7" font-size="11" font-weight="700">同目录对外</text>
-              <text x="776" y="262" text-anchor="middle" fill="#64748b" font-size="9">TFTP · NFS · HTTP</text>
+              <!-- ===== manager ===== -->
+              <rect x="40" y="196" width="880" height="420" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+              <text x="60" y="220" fill="#0284c7" font-size="12" font-weight="700">② ssh_bridge_manager · 一个进程装下这些工具（Windows 可用 desktop 托盘壳）</text>
 
-              <!-- 辅助工具行 -->
-              <rect x="68" y="318" width="120" height="40" rx="6" fill="#fffbeb" stroke="#d97706"/>
-              <text x="128" y="343" text-anchor="middle" fill="#d97706" font-size="12" font-weight="700">继电器 / 板控</text>
-              <rect x="200" y="318" width="100" height="40" rx="6" fill="#fff" stroke="#64748b"/>
-              <text x="250" y="343" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">TFTP 服务</text>
-              <rect x="312" y="318" width="100" height="40" rx="6" fill="#fff" stroke="#64748b"/>
-              <text x="362" y="343" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">NFS 导出</text>
-              <rect x="424" y="318" width="100" height="40" rx="6" fill="#fff" stroke="#64748b"/>
-              <text x="474" y="343" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">HTTP 浏览</text>
-              <rect x="536" y="318" width="100" height="40" rx="6" fill="#fefce8" stroke="#ca8a04" stroke-dasharray="4 3"/>
-              <text x="586" y="343" text-anchor="middle" fill="#a16207" font-size="12" font-weight="700">Tunnel 可选</text>
-              <rect x="648" y="318" width="204" height="40" rx="6" fill="#fff" stroke="#94a3b8" stroke-dasharray="4 3"/>
-              <text x="750" y="343" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600">UDP 发现 · /help · skills</text>
+              <!-- arrows into manager -->
+              <line x1="306" y1="148" x2="306" y2="176" stroke="#7c3aed" stroke-width="1.5"/>
+              <line x1="306" y1="176" x2="280" y2="176" stroke="#7c3aed" stroke-width="1.5"/>
+              <line x1="280" y1="176" x2="280" y2="194" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#mk-h)"/>
+              <line x1="750" y1="148" x2="750" y2="176" stroke="#059669" stroke-width="1.5"/>
+              <line x1="750" y1="176" x2="700" y2="176" stroke="#059669" stroke-width="1.5"/>
+              <line x1="700" y1="176" x2="700" y2="194" stroke="#059669" stroke-width="1.5" marker-end="url(#mk-a)"/>
 
-              <!-- L3 → L2 -->
-              <line x1="145" y1="96" x2="145" y2="118" stroke="#7c3aed" stroke-width="1.5"/>
-              <line x1="145" y1="118" x2="200" y2="118" stroke="#7c3aed" stroke-width="1.5"/>
-              <line x1="200" y1="118" x2="200" y2="170" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#mk-h)"/>
-              <line x1="145" y1="118" x2="620" y2="118" stroke="#7c3aed" stroke-width="1.5"/>
-              <line x1="620" y1="118" x2="620" y2="170" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#mk-h)"/>
-              <line x1="295" y1="96" x2="295" y2="118" stroke="#059669" stroke-width="1.5"/>
-              <line x1="295" y1="118" x2="280" y2="118" stroke="#059669" stroke-width="1.5"/>
-              <line x1="280" y1="118" x2="280" y2="170" stroke="#059669" stroke-width="1.5" marker-end="url(#mk-a)"/>
-              <line x1="295" y1="118" x2="700" y2="118" stroke="#059669" stroke-width="1.5"/>
-              <line x1="700" y1="118" x2="700" y2="170" stroke="#059669" stroke-width="1.5" marker-end="url(#mk-a)"/>
+              <!-- 控受控对象 -->
+              <rect x="60" y="236" width="420" height="150" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>
+              <text x="80" y="260" fill="#0284c7" font-size="13" font-weight="700">A. 控受控对象（连出去的通道）</text>
+              <text x="80" y="278" fill="#64748b" font-size="10">串口 / SSH Link = 去控制板子或受控主机 · 不是「人怎么进来」</text>
+              <rect x="80" y="296" width="180" height="70" rx="8" fill="#fff" stroke="#0284c7"/>
+              <text x="170" y="322" text-anchor="middle" fill="#0284c7" font-size="14" font-weight="700">串口桥</text>
+              <text x="170" y="342" text-anchor="middle" fill="#64748b" font-size="11">COM / tty → 板串口</text>
+              <text x="170" y="358" text-anchor="middle" fill="#64748b" font-size="10">无网可调 U-Boot / 内核</text>
+              <rect x="280" y="296" width="180" height="70" rx="8" fill="#fff" stroke="#059669"/>
+              <text x="370" y="322" text-anchor="middle" fill="#059669" font-size="14" font-weight="700">SSH Link</text>
+              <text x="370" y="342" text-anchor="middle" fill="#64748b" font-size="11">出站连板 / 受控主机</text>
+              <text x="370" y="358" text-anchor="middle" fill="#64748b" font-size="10">网口起来后高效 shell</text>
 
-              <!-- bus -->
-              <line x1="264" y1="360" x2="264" y2="390" stroke="#0284c7" stroke-width="2"/>
-              <line x1="664" y1="360" x2="664" y2="390" stroke="#ca8a04" stroke-width="2"/>
-              <line x1="120" y1="390" x2="800" y2="390" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
-              <text x="460" y="384" text-anchor="middle" fill="#64748b" font-size="10">接到板卡 × N</text>
+              <!-- Share -->
+              <rect x="500" y="236" width="400" height="150" rx="10" fill="#fefce8" stroke="#ca8a04" stroke-width="2"/>
+              <text x="520" y="260" fill="#a16207" font-size="13" font-weight="700">B. 共享目录 Share（传文件）</text>
+              <text x="520" y="278" fill="#64748b" font-size="10">根 {work}/share · 板名目录 + common/</text>
+              <rect x="520" y="296" width="110" height="70" rx="6" fill="#fff" stroke="#7c3aed"/>
+              <text x="575" y="320" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">人上传</text>
+              <text x="575" y="340" text-anchor="middle" fill="#64748b" font-size="10">网页拖拽</text>
+              <text x="575" y="356" text-anchor="middle" fill="#64748b" font-size="10">多文件</text>
+              <rect x="644" y="296" width="110" height="70" rx="6" fill="#fff" stroke="#059669"/>
+              <text x="699" y="320" text-anchor="middle" fill="#059669" font-size="12" font-weight="700">AI 上传</text>
+              <text x="699" y="340" text-anchor="middle" fill="#64748b" font-size="10">HTTP 分片</text>
+              <text x="699" y="356" text-anchor="middle" fill="#64748b" font-size="10">Agent API</text>
+              <rect x="768" y="296" width="112" height="70" rx="6" fill="#fff" stroke="#ca8a04"/>
+              <text x="824" y="316" text-anchor="middle" fill="#a16207" font-size="12" font-weight="700">板拉取</text>
+              <text x="824" y="336" text-anchor="middle" fill="#64748b" font-size="10">TFTP</text>
+              <text x="824" y="352" text-anchor="middle" fill="#64748b" font-size="10">NFS · HTTP</text>
 
-              <!-- L1 boards -->
-              <rect x="48" y="404" width="824" height="200" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
-              <text x="68" y="428" fill="#ea580c" font-size="11" font-weight="700">L1 · 目标板卡 × N</text>
+              <!-- Tunnel 突出 -->
+              <rect x="60" y="406" width="420" height="100" rx="10" fill="#fdf2f8" stroke="#db2777" stroke-width="2"/>
+              <text x="80" y="430" fill="#db2777" font-size="13" font-weight="700">C. Tunnel（远程操控特性）</text>
+              <text x="80" y="452" fill="#475569" font-size="11">把 Web / Agent 接口 / 入站 SSH 映到公网或异地</text>
+              <text x="80" y="474" fill="#475569" font-size="11">→ 人远程开网页或 ssh；AI 远程打 Agent 接口</text>
+              <text x="80" y="492" fill="#64748b" font-size="10">本地能做的，开了 Tunnel 远程也能做</text>
 
-              <rect x="72" y="444" width="380" height="140" rx="10" fill="#ffedd5" stroke="#ea580c" stroke-width="2"/>
-              <text x="262" y="468" text-anchor="middle" fill="#9a3412" font-size="13" font-weight="700">Board（示意）</text>
-              <rect x="92" y="484" width="70" height="28" rx="4" fill="#e0f2fe" stroke="#0284c7"/>
-              <text x="127" y="503" text-anchor="middle" fill="#0284c7" font-size="11" font-weight="700">串口</text>
-              <rect x="172" y="484" width="70" height="28" rx="4" fill="#fdf2f8" stroke="#db2777"/>
-              <text x="207" y="503" text-anchor="middle" fill="#db2777" font-size="11" font-weight="700">网口</text>
-              <rect x="252" y="484" width="70" height="28" rx="4" fill="#fffbeb" stroke="#d97706"/>
-              <text x="287" y="503" text-anchor="middle" fill="#d97706" font-size="11" font-weight="700">电源</text>
-              <rect x="332" y="484" width="96" height="28" rx="4" fill="#fffbeb" stroke="#d97706"/>
-              <text x="380" y="503" text-anchor="middle" fill="#d97706" font-size="11" font-weight="700">Upgrade</text>
-              <text x="262" y="540" text-anchor="middle" fill="#c2410c" font-size="11" font-weight="600">控板：串口 / SSH · 旁观同一会话</text>
-              <text x="262" y="562" text-anchor="middle" fill="#a16207" font-size="11" font-weight="600">拉文件：TFTP · NFS · HTTP → 本地</text>
+              <!-- 发现 突出 -->
+              <rect x="500" y="406" width="400" height="100" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+              <text x="520" y="430" fill="#c2410c" font-size="13" font-weight="700">D. 发现 / 扫描工具</text>
+              <text x="520" y="452" fill="#475569" font-size="11">本机应答 UDP 发现（EADK1）；板卡可被扫描共享</text>
+              <text x="520" y="474" fill="#475569" font-size="11">windows_manager：局域网扫主机与可发现板</text>
+              <text x="520" y="492" fill="#64748b" font-size="10">别名优先显示 · 不用记 IP 端口</text>
 
-              <rect x="472" y="444" width="380" height="140" rx="10" fill="#fff" stroke="#ca8a04" stroke-width="2"/>
-              <text x="662" y="468" text-anchor="middle" fill="#a16207" font-size="13" font-weight="700">板端怎么拿文件？</text>
-              <text x="500" y="498" fill="#0284c7" font-size="12" font-weight="700">TFTP</text>
-              <text x="560" y="498" fill="#475569" font-size="11">U-Boot / 早期启动 · serverip=主机</text>
-              <text x="500" y="524" fill="#0284c7" font-size="12" font-weight="700">NFS</text>
-              <text x="560" y="524" fill="#475569" font-size="11">Linux 起来后 mount …:/share</text>
-              <text x="500" y="550" fill="#0284c7" font-size="12" font-weight="700">HTTP</text>
-              <text x="560" y="550" fill="#475569" font-size="11">wget / curl 拉单个文件</text>
-              <text x="662" y="572" text-anchor="middle" fill="#94a3b8" font-size="10">上传只做一次 · 三种拉法按阶段选</text>
+              <!-- 继电器 + 服务 -->
+              <rect x="60" y="524" width="140" height="72" rx="8" fill="#fffbeb" stroke="#d97706"/>
+              <text x="130" y="552" text-anchor="middle" fill="#d97706" font-size="12" font-weight="700">继电器 / 板控</text>
+              <text x="130" y="572" text-anchor="middle" fill="#64748b" font-size="10">电源 · 重启</text>
+              <text x="130" y="586" text-anchor="middle" fill="#64748b" font-size="10">Upgrade</text>
+              <rect x="216" y="524" width="100" height="72" rx="8" fill="#fff" stroke="#64748b"/>
+              <text x="266" y="556" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">TFTP</text>
+              <text x="266" y="576" text-anchor="middle" fill="#64748b" font-size="10">U-Boot 拉</text>
+              <rect x="332" y="524" width="100" height="72" rx="8" fill="#fff" stroke="#64748b"/>
+              <text x="382" y="556" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">NFS</text>
+              <text x="382" y="576" text-anchor="middle" fill="#64748b" font-size="10">mount 拉</text>
+              <rect x="448" y="524" width="100" height="72" rx="8" fill="#fff" stroke="#64748b"/>
+              <text x="498" y="556" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">HTTP</text>
+              <text x="498" y="576" text-anchor="middle" fill="#64748b" font-size="10">wget 拉</text>
+              <rect x="564" y="524" width="316" height="72" rx="8" fill="#fff" stroke="#94a3b8" stroke-dasharray="4 3"/>
+              <text x="722" y="552" text-anchor="middle" fill="#475569" font-size="12" font-weight="700">入站 SSH 网关（人的通道实现）</text>
+              <text x="722" y="574" text-anchor="middle" fill="#64748b" font-size="10">共享口 · 用户名=通道名 · 接到同一会话</text>
 
-              <!-- fan-out -->
-              <line x1="264" y1="390" x2="127" y2="390" stroke="#0284c7" stroke-width="1.5"/>
-              <line x1="127" y1="390" x2="127" y2="482" stroke="#0284c7" stroke-width="1.5" marker-end="url(#mk-b)"/>
-              <line x1="264" y1="390" x2="207" y2="390" stroke="#db2777" stroke-width="1.2" stroke-dasharray="4 3"/>
-              <line x1="207" y1="390" x2="207" y2="482" stroke="#db2777" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#mk-n)"/>
-              <line x1="664" y1="390" x2="662" y2="442" stroke="#ca8a04" stroke-width="1.8" marker-end="url(#mk-s)"/>
-              <line x1="128" y1="358" x2="128" y2="390" stroke="#d97706" stroke-width="1.5"/>
-              <line x1="128" y1="390" x2="287" y2="390" stroke="#d97706" stroke-width="1.5"/>
-              <line x1="287" y1="390" x2="287" y2="482" stroke="#d97706" stroke-width="1.5" marker-end="url(#mk-r)"/>
+              <!-- ===== 受控对象 ===== -->
+              <rect x="40" y="648" width="880" height="120" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+              <text x="60" y="672" fill="#ea580c" font-size="12" font-weight="700">③ 受控对象 × N（被串口桥 / SSH Link 控制；从 Share 拉文件）</text>
+              <rect x="60" y="688" width="260" height="60" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+              <text x="190" y="714" text-anchor="middle" fill="#9a3412" font-size="13" font-weight="700">板卡 · 串口</text>
+              <text x="190" y="734" text-anchor="middle" fill="#64748b" font-size="10">经串口桥</text>
+              <rect x="340" y="688" width="260" height="60" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+              <text x="470" y="714" text-anchor="middle" fill="#9a3412" font-size="13" font-weight="700">板卡 / 主机 · 网口</text>
+              <text x="470" y="734" text-anchor="middle" fill="#64748b" font-size="10">经 SSH Link</text>
+              <rect x="620" y="688" width="280" height="60" rx="8" fill="#fefce8" stroke="#ca8a04"/>
+              <text x="760" y="714" text-anchor="middle" fill="#a16207" font-size="13" font-weight="700">板端拉 Share</text>
+              <text x="760" y="734" text-anchor="middle" fill="#64748b" font-size="10">TFTP · NFS · HTTP → 本地</text>
 
-              <!-- 底栏优势 -->
-              <rect x="48" y="624" width="824" height="132" rx="12" fill="#fff" stroke="#cbd5e1"/>
-              <text x="68" y="652" fill="#0f172a" font-size="13" font-weight="700">为什么比「只开一个串口工具 / 另起 TFTP 服务器」更省事？</text>
-              <text x="68" y="678" fill="#0284c7" font-size="12" font-weight="700">控板统一</text>
-              <text x="150" y="678" fill="#475569" font-size="12">Web 终端 + Agent API + 入站 SSH，人机同看一条通道</text>
-              <text x="68" y="702" fill="#ca8a04" font-size="12" font-weight="700">文件统一</text>
-              <text x="150" y="702" fill="#475569" font-size="12">Share 内置：人网页拖、Agent HTTP 传；板用 TFTP/NFS/HTTP 拉</text>
-              <text x="68" y="726" fill="#059669" font-size="12" font-weight="700">阶段覆盖</text>
-              <text x="150" y="726" fill="#475569" font-size="12">无网用串口 + TFTP；有网用 SSH Link + NFS/HTTP —— 一套工具跟全程</text>
-              <text x="68" y="746" fill="#94a3b8" font-size="11">继电器控电源/Upgrade；Tunnel 可选映到公网；局域网可 UDP 发现本机</text>
+              <line x1="170" y1="366" x2="170" y2="620" stroke="#0284c7" stroke-width="1.5"/>
+              <line x1="170" y1="620" x2="190" y2="620" stroke="#0284c7" stroke-width="1.5"/>
+              <line x1="190" y1="620" x2="190" y2="646" stroke="#0284c7" stroke-width="1.5" marker-end="url(#mk-b)"/>
+              <line x1="370" y1="366" x2="370" y2="620" stroke="#059669" stroke-width="1.5"/>
+              <line x1="370" y1="620" x2="470" y2="620" stroke="#059669" stroke-width="1.5"/>
+              <line x1="470" y1="620" x2="470" y2="646" stroke="#059669" stroke-width="1.5" marker-end="url(#mk-a)"/>
+              <line x1="824" y1="366" x2="824" y2="620" stroke="#ca8a04" stroke-width="1.5"/>
+              <line x1="824" y1="620" x2="760" y2="620" stroke="#ca8a04" stroke-width="1.5"/>
+              <line x1="760" y1="620" x2="760" y2="646" stroke="#ca8a04" stroke-width="1.5" marker-end="url(#mk-s)"/>
+              <line x1="130" y1="596" x2="130" y2="646" stroke="#d97706" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#mk-r)"/>
+
+              <!-- 总结条 -->
+              <rect x="40" y="788" width="880" height="92" rx="12" fill="#fff" stroke="#cbd5e1"/>
+              <text x="60" y="816" fill="#0f172a" font-size="13" font-weight="700">读图要点（别混）</text>
+              <text x="60" y="840" fill="#7c3aed" font-size="12" font-weight="700">人接入</text>
+              <text x="130" y="840" fill="#475569" font-size="12">= Web · IDE · 入站 SSH</text>
+              <text x="360" y="840" fill="#059669" font-size="12" font-weight="700">AI 接入</text>
+              <text x="430" y="840" fill="#475569" font-size="12">= Agent 接口</text>
+              <text x="580" y="840" fill="#0284c7" font-size="12" font-weight="700">控对象</text>
+              <text x="650" y="840" fill="#475569" font-size="12">= 串口桥 · SSH Link</text>
+              <text x="60" y="864" fill="#db2777" font-size="12" font-weight="700">Tunnel</text>
+              <text x="130" y="864" fill="#475569" font-size="12">= 人与 AI 都能远程　　</text>
+              <text x="360" y="864" fill="#ea580c" font-size="12" font-weight="700">发现扫描</text>
+              <text x="450" y="864" fill="#475569" font-size="12">= 找本机与可共享板　　</text>
+              <text x="680" y="864" fill="#ca8a04" font-size="12" font-weight="700">Share</text>
+              <text x="740" y="864" fill="#475569" font-size="12">= 上传一次多种拉</text>
             </svg>
           </div>
         </figure>
       </div>
     </section>
 
-    <!-- 部署形态 -->
     <section id="deploy" class="section bg-subtle">
       <div class="wrap">
         <div class="section-head">
           <span class="tag">Deploy</span>
           <h2>部署形态</h2>
-          <p><strong>场景一</strong>：人 / AI / Bridge 同机。<strong>场景二</strong>：人 / AI 远程，Bridge + 板留守现场。协同方式相同。</p>
+          <p><strong>场景一</strong>本地同机直连。<strong>场景二</strong>人与 AI 远程，经 Tunnel（或 LAN/VPN）进现场 Bridge——接入面不变。</p>
         </div>
 
         <figure class="diagram">
           <figcaption>
-            <strong>场景一 · 同机（实验室常见）</strong>
-            <span>人、AI、ssh_bridge_manager 都在调试主机；板卡物理接在旁边</span>
+            <strong>场景一 · 本地操控</strong>
+            <span>人 / AI / manager 同机；板卡接在旁边；发现工具可扫局域网其它实例</span>
           </figcaption>
           <div class="legend">
-            <span><i class="dot human"></i>人</span>
-            <span><i class="dot ai"></i>AI</span>
+            <span><i class="dot human"></i>人接入</span>
+            <span><i class="dot ai"></i>Agent</span>
             <span><i class="dot bridge"></i>Bridge</span>
-            <span><i class="dot jump"></i>Share</span>
+            <span><i class="dot net"></i>发现</span>
           </div>
           <div class="svg-box">
-            <svg viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="场景一同机">
+            <svg viewBox="0 0 920 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="场景一本地">
               <defs>
                 <marker id="h1" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#7c3aed"/></marker>
                 <marker id="a1" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#059669"/></marker>
                 <marker id="k1" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#0284c7"/></marker>
               </defs>
-              <rect width="920" height="400" fill="#fafbfc" rx="8"/>
-              <rect x="48" y="20" width="824" height="220" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
-              <text x="68" y="44" fill="#0284c7" font-size="12" font-weight="700">同一台调试主机 · 人 / AI / Bridge 共处</text>
+              <rect width="920" height="380" fill="#fafbfc" rx="8"/>
+              <rect x="48" y="20" width="824" height="200" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+              <text x="68" y="44" fill="#0284c7" font-size="12" font-weight="700">调试主机 · 本地直连（不经 Tunnel）</text>
+              <rect x="72" y="60" width="100" height="36" rx="6" fill="#f5f3ff" stroke="#7c3aed"/>
+              <text x="122" y="83" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">Web</text>
+              <rect x="184" y="60" width="100" height="36" rx="6" fill="#f5f3ff" stroke="#7c3aed"/>
+              <text x="234" y="83" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">IDE</text>
+              <rect x="296" y="60" width="110" height="36" rx="6" fill="#f5f3ff" stroke="#7c3aed"/>
+              <text x="351" y="83" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">入站 SSH</text>
+              <rect x="420" y="60" width="130" height="36" rx="6" fill="#ecfdf5" stroke="#059669"/>
+              <text x="485" y="83" text-anchor="middle" fill="#059669" font-size="12" font-weight="700">Agent 接口</text>
+              <rect x="568" y="60" width="280" height="36" rx="6" fill="#fff7ed" stroke="#ea580c"/>
+              <text x="708" y="83" text-anchor="middle" fill="#c2410c" font-size="12" font-weight="700">发现扫描 · windows_manager</text>
 
-              <rect x="80" y="60" width="120" height="44" rx="8" fill="#f5f3ff" stroke="#7c3aed"/>
-              <text x="140" y="87" text-anchor="middle" fill="#7c3aed" font-size="13" font-weight="700">人 · Web</text>
-              <rect x="220" y="60" width="120" height="44" rx="8" fill="#ecfdf5" stroke="#059669"/>
-              <text x="280" y="87" text-anchor="middle" fill="#059669" font-size="13" font-weight="700">AI · HTTP</text>
-              <rect x="360" y="64" width="480" height="36" rx="8" fill="#fff" stroke="#cbd5e1"/>
-              <text x="600" y="87" text-anchor="middle" fill="#475569" font-size="12" font-weight="600">并行不互斥 · 无远程跳板</text>
+              <rect x="72" y="120" width="776" height="80" rx="10" fill="#fff" stroke="#0284c7"/>
+              <text x="92" y="148" fill="#0284c7" font-size="12" font-weight="700">ssh_bridge_manager</text>
+              <text x="92" y="172" fill="#475569" font-size="11">串口桥 · SSH Link · Share(TFTP/NFS/HTTP) · 继电器 · 入站 SSH 网关 · UDP 发现应答</text>
+              <text x="92" y="190" fill="#94a3b8" font-size="10">Tunnel 本场景可关；需要远程时开场景二</text>
 
-              <rect x="80" y="128" width="760" height="92" rx="10" fill="#fff" stroke="#0284c7" stroke-width="1.5"/>
-              <text x="100" y="152" fill="#0284c7" font-size="11" font-weight="700">ssh_bridge_manager</text>
-              <rect x="100" y="164" width="100" height="36" rx="6" fill="#e0f2fe" stroke="#0284c7"/>
-              <text x="150" y="187" text-anchor="middle" fill="#0284c7" font-size="11" font-weight="700">串口/SSH</text>
-              <rect x="216" y="164" width="110" height="36" rx="6" fill="#fefce8" stroke="#ca8a04"/>
-              <text x="271" y="187" text-anchor="middle" fill="#a16207" font-size="11" font-weight="700">Share 共享目录</text>
-              <rect x="342" y="164" width="70" height="36" rx="6" fill="#f8fafc" stroke="#64748b"/>
-              <text x="377" y="187" text-anchor="middle" fill="#475569" font-size="11" font-weight="700">TFTP</text>
-              <rect x="426" y="164" width="70" height="36" rx="6" fill="#f8fafc" stroke="#64748b"/>
-              <text x="461" y="187" text-anchor="middle" fill="#475569" font-size="11" font-weight="700">NFS</text>
-              <rect x="510" y="164" width="70" height="36" rx="6" fill="#f8fafc" stroke="#64748b"/>
-              <text x="545" y="187" text-anchor="middle" fill="#475569" font-size="11" font-weight="700">HTTP</text>
-              <rect x="594" y="164" width="90" height="36" rx="6" fill="#fffbeb" stroke="#d97706"/>
-              <text x="639" y="187" text-anchor="middle" fill="#d97706" font-size="11" font-weight="700">继电器</text>
-              <rect x="698" y="164" width="120" height="36" rx="6" fill="#fff" stroke="#94a3b8" stroke-dasharray="4 3"/>
-              <text x="758" y="187" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="700">入站 SSH</text>
+              <line x1="234" y1="96" x2="234" y2="118" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#h1)"/>
+              <line x1="485" y1="96" x2="485" y2="118" stroke="#059669" stroke-width="1.5" marker-end="url(#a1)"/>
+              <line x1="460" y1="200" x2="460" y2="236" stroke="#0284c7" stroke-width="2" marker-end="url(#k1)"/>
 
-              <line x1="140" y1="104" x2="140" y2="120" stroke="#7c3aed" stroke-width="1.5"/>
-              <line x1="140" y1="120" x2="271" y2="120" stroke="#7c3aed" stroke-width="1.5"/>
-              <line x1="271" y1="120" x2="271" y2="126" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#h1)"/>
-              <line x1="280" y1="104" x2="280" y2="120" stroke="#059669" stroke-width="1.5"/>
-              <line x1="280" y1="120" x2="271" y2="120" stroke="#059669" stroke-width="1.5"/>
-              <line x1="460" y1="220" x2="460" y2="252" stroke="#0284c7" stroke-width="2" marker-end="url(#k1)"/>
-
-              <rect x="48" y="264" width="824" height="112" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
-              <text x="68" y="290" fill="#ea580c" font-size="11" font-weight="700">板卡 × N · 物理接在主机旁</text>
-              <rect x="80" y="308" width="220" height="44" rx="8" fill="#ffedd5" stroke="#ea580c"/>
-              <text x="190" y="335" text-anchor="middle" fill="#9a3412" font-size="13" font-weight="700">Board #1</text>
-              <rect x="320" y="308" width="220" height="44" rx="8" fill="#ffedd5" stroke="#ea580c"/>
-              <text x="430" y="335" text-anchor="middle" fill="#9a3412" font-size="13" font-weight="700">Board #2</text>
-              <text x="580" y="335" fill="#ea580c" font-size="18" font-weight="700">…N</text>
-              <text x="720" y="320" fill="#0284c7" font-size="11" font-weight="600">串口线 / 网线</text>
-              <text x="720" y="340" fill="#ca8a04" font-size="11" font-weight="600">TFTP·NFS·HTTP 拉 Share</text>
+              <rect x="48" y="248" width="824" height="108" rx="12" fill="#fff7ed" stroke="#ea580c"/>
+              <text x="68" y="276" fill="#ea580c" font-size="11" font-weight="700">受控板卡 / 主机 × N</text>
+              <rect x="80" y="292" width="200" height="40" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+              <text x="180" y="317" text-anchor="middle" fill="#9a3412" font-size="13" font-weight="700">Board #1</text>
+              <rect x="300" y="292" width="200" height="40" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+              <text x="400" y="317" text-anchor="middle" fill="#9a3412" font-size="13" font-weight="700">Board #2</text>
+              <text x="540" y="317" fill="#ea580c" font-size="16" font-weight="700">…N</text>
+              <text x="680" y="310" fill="#64748b" font-size="11">串口 / 网口 · 拉 Share</text>
             </svg>
           </div>
         </figure>
 
         <figure class="diagram">
           <figcaption>
-            <strong>场景二 · 分布式（远程协同）</strong>
-            <span>人与 AI 不在调试主机；Bridge 跑在现场并接板；经 LAN / VPN / Tunnel 到达</span>
+            <strong>场景二 · 远程操控（Tunnel 打开）</strong>
+            <span>人与 AI 在异地；现场跑 manager；Tunnel 映 Web / Agent / 入站 SSH——本地能做的远程也能做</span>
           </figcaption>
           <div class="legend">
-            <span><i class="dot human"></i>人 · 远程</span>
-            <span><i class="dot ai"></i>AI · 远程</span>
+            <span><i class="dot human"></i>远程人</span>
+            <span><i class="dot ai"></i>远程 AI</span>
+            <span><i class="dot net"></i>Tunnel</span>
             <span><i class="dot bridge"></i>现场 Bridge</span>
-            <span><i class="dot jump"></i>网络 / Tunnel</span>
           </div>
           <div class="svg-box">
-            <svg viewBox="0 0 920 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="场景二分布式">
+            <svg viewBox="0 0 920 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="场景二远程">
               <defs>
                 <marker id="h2" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#7c3aed"/></marker>
                 <marker id="a2" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#059669"/></marker>
+                <marker id="n2" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#db2777"/></marker>
                 <marker id="k2" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#0284c7"/></marker>
               </defs>
-              <rect width="920" height="500" fill="#fafbfc" rx="8"/>
+              <rect width="920" height="460" fill="#fafbfc" rx="8"/>
 
-              <rect x="48" y="16" width="824" height="88" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
-              <text x="68" y="40" fill="#64748b" font-size="11" font-weight="700">远程侧 · 人与 AI 各自机器</text>
-              <rect x="90" y="52" width="140" height="40" rx="8" fill="#f5f3ff" stroke="#7c3aed"/>
-              <text x="160" y="77" text-anchor="middle" fill="#7c3aed" font-size="13" font-weight="700">人 · Web / SSH</text>
-              <rect x="250" y="52" width="140" height="40" rx="8" fill="#ecfdf5" stroke="#059669"/>
-              <text x="320" y="77" text-anchor="middle" fill="#059669" font-size="13" font-weight="700">AI · HTTP</text>
-              <rect x="420" y="56" width="420" height="32" rx="8" fill="#fff" stroke="#cbd5e1"/>
-              <text x="630" y="77" text-anchor="middle" fill="#475569" font-size="12" font-weight="600">协同方式与场景一相同 · 只是多了一跳网络</text>
+              <rect x="48" y="16" width="824" height="88" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6 4"/>
+              <text x="68" y="40" fill="#64748b" font-size="11" font-weight="700">远程侧 · 人与 AI 不在现场</text>
+              <rect x="80" y="52" width="90" height="36" rx="6" fill="#f5f3ff" stroke="#7c3aed"/>
+              <text x="125" y="75" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">Web</text>
+              <rect x="182" y="52" width="90" height="36" rx="6" fill="#f5f3ff" stroke="#7c3aed"/>
+              <text x="227" y="75" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">IDE</text>
+              <rect x="284" y="52" width="100" height="36" rx="6" fill="#f5f3ff" stroke="#7c3aed"/>
+              <text x="334" y="75" text-anchor="middle" fill="#7c3aed" font-size="12" font-weight="700">入站 SSH</text>
+              <rect x="400" y="52" width="120" height="36" rx="6" fill="#ecfdf5" stroke="#059669"/>
+              <text x="460" y="75" text-anchor="middle" fill="#059669" font-size="12" font-weight="700">Agent 接口</text>
+              <rect x="540" y="52" width="300" height="36" rx="6" fill="#fff" stroke="#cbd5e1"/>
+              <text x="690" y="75" text-anchor="middle" fill="#475569" font-size="12" font-weight="600">接入面与本地相同 · 只是多一跳</text>
 
-              <rect x="80" y="124" width="700" height="36" rx="10" fill="#fefce8" stroke="#ca8a04" stroke-width="1.5"/>
-              <text x="430" y="147" text-anchor="middle" fill="#a16207" font-size="13" font-weight="700">网络 · LAN / VPN / Tunnel（可选映 HTTP 与入站 SSH）</text>
+              <rect x="80" y="124" width="760" height="44" rx="10" fill="#fdf2f8" stroke="#db2777" stroke-width="2"/>
+              <text x="460" y="152" text-anchor="middle" fill="#db2777" font-size="14" font-weight="700">Tunnel · 映 Web / Agent 接口 / 入站 SSH → 人与 AI 都能远程操控</text>
 
-              <line x1="160" y1="92" x2="160" y2="124" stroke="#7c3aed" stroke-width="1.5"/>
-              <line x1="320" y1="92" x2="320" y2="124" stroke="#059669" stroke-width="1.5"/>
-              <line x1="160" y1="160" x2="160" y2="176" stroke="#7c3aed" stroke-width="1.5"/>
-              <line x1="320" y1="160" x2="320" y2="176" stroke="#059669" stroke-width="1.5"/>
-              <line x1="160" y1="176" x2="460" y2="176" stroke="#94a3b8" stroke-width="1.5"/>
-              <line x1="320" y1="176" x2="460" y2="176" stroke="#94a3b8" stroke-width="1.5"/>
-              <line x1="460" y1="176" x2="460" y2="200" stroke="#0284c7" stroke-width="2" marker-end="url(#k2)"/>
+              <line x1="227" y1="88" x2="227" y2="124" stroke="#7c3aed" stroke-width="1.5"/>
+              <line x1="460" y1="88" x2="460" y2="124" stroke="#059669" stroke-width="1.5"/>
+              <line x1="460" y1="168" x2="460" y2="196" stroke="#db2777" stroke-width="2" marker-end="url(#n2)"/>
 
-              <rect x="48" y="208" width="824" height="120" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
-              <text x="68" y="232" fill="#0284c7" font-size="11" font-weight="700">现场 · 调试主机 · 跑 Bridge · 唯一物理接板</text>
-              <rect x="80" y="248" width="760" height="60" rx="10" fill="#fff" stroke="#0284c7"/>
-              <text x="100" y="270" fill="#0284c7" font-size="11" font-weight="700">ssh_bridge_manager</text>
-              <rect x="100" y="280" width="90" height="20" rx="4" fill="#e0f2fe" stroke="#0284c7"/>
-              <text x="145" y="294" text-anchor="middle" fill="#0284c7" font-size="10" font-weight="700">串口/SSH</text>
-              <rect x="204" y="280" width="90" height="20" rx="4" fill="#fefce8" stroke="#ca8a04"/>
-              <text x="249" y="294" text-anchor="middle" fill="#a16207" font-size="10" font-weight="700">Share</text>
-              <rect x="308" y="280" width="56" height="20" rx="4" fill="#f8fafc" stroke="#64748b"/>
-              <text x="336" y="294" text-anchor="middle" fill="#475569" font-size="10" font-weight="700">TFTP</text>
-              <rect x="376" y="280" width="56" height="20" rx="4" fill="#f8fafc" stroke="#64748b"/>
-              <text x="404" y="294" text-anchor="middle" fill="#475569" font-size="10" font-weight="700">NFS</text>
-              <rect x="444" y="280" width="56" height="20" rx="4" fill="#f8fafc" stroke="#64748b"/>
-              <text x="472" y="294" text-anchor="middle" fill="#475569" font-size="10" font-weight="700">HTTP</text>
-              <rect x="512" y="280" width="70" height="20" rx="4" fill="#fffbeb" stroke="#d97706"/>
-              <text x="547" y="294" text-anchor="middle" fill="#d97706" font-size="10" font-weight="700">继电器</text>
-              <rect x="596" y="280" width="70" height="20" rx="4" fill="#fefce8" stroke="#ca8a04"/>
-              <text x="631" y="294" text-anchor="middle" fill="#a16207" font-size="10" font-weight="700">Tunnel</text>
-              <rect x="680" y="280" width="140" height="20" rx="4" fill="#fff" stroke="#94a3b8" stroke-dasharray="4 3"/>
-              <text x="750" y="294" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="700">入站 SSH · 发现</text>
+              <rect x="48" y="204" width="824" height="120" rx="14" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+              <text x="68" y="228" fill="#0284c7" font-size="11" font-weight="700">现场 · 调试主机 · 跑 manager · 接板</text>
+              <rect x="72" y="244" width="776" height="60" rx="8" fill="#fff" stroke="#0284c7"/>
+              <text x="92" y="268" fill="#0284c7" font-size="12" font-weight="700">ssh_bridge_manager</text>
+              <text x="92" y="290" fill="#475569" font-size="11">串口桥 · SSH Link · Share · 继电器 · 入站 SSH 网关 · Tunnel · 发现应答</text>
 
-              <line x1="460" y1="328" x2="460" y2="356" stroke="#0284c7" stroke-width="2" marker-end="url(#k2)"/>
-              <text x="480" y="348" fill="#0284c7" font-size="10" font-weight="600">物理线</text>
+              <line x1="460" y1="324" x2="460" y2="352" stroke="#0284c7" stroke-width="2" marker-end="url(#k2)"/>
 
-              <rect x="48" y="364" width="824" height="80" rx="14" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
-              <text x="68" y="388" fill="#ea580c" font-size="11" font-weight="700">板卡区 · 只挂在现场主机旁</text>
-              <rect x="100" y="400" width="220" height="28" rx="6" fill="#ffedd5" stroke="#ea580c"/>
-              <text x="210" y="419" text-anchor="middle" fill="#9a3412" font-size="12" font-weight="700">Board #1</text>
-              <rect x="340" y="400" width="220" height="28" rx="6" fill="#ffedd5" stroke="#ea580c"/>
-              <text x="450" y="419" text-anchor="middle" fill="#9a3412" font-size="12" font-weight="700">Board #2</text>
-              <text x="600" y="419" fill="#ea580c" font-size="16" font-weight="700">…N</text>
-
-              <text x="460" y="478" text-anchor="middle" fill="#64748b" font-size="12">
-                <tspan fill="#0284c7" font-weight="700">控板</tspan>
-                <tspan>：远程 Web / HTTP / 入站 SSH　·　</tspan>
-                <tspan fill="#ca8a04" font-weight="700">传文件</tspan>
-                <tspan>：远程上传到现场 Share，板在本地拉</tspan>
-              </text>
+              <rect x="48" y="360" width="824" height="72" rx="12" fill="#fff7ed" stroke="#ea580c"/>
+              <text x="68" y="384" fill="#ea580c" font-size="11" font-weight="700">板卡区 · 只在现场</text>
+              <rect x="80" y="396" width="180" height="24" rx="4" fill="#ffedd5" stroke="#ea580c"/>
+              <text x="170" y="413" text-anchor="middle" fill="#9a3412" font-size="12" font-weight="700">Board #1</text>
+              <rect x="280" y="396" width="180" height="24" rx="4" fill="#ffedd5" stroke="#ea580c"/>
+              <text x="370" y="413" text-anchor="middle" fill="#9a3412" font-size="12" font-weight="700">Board #2</text>
+              <text x="500" y="413" fill="#ea580c" font-size="14" font-weight="700">…N</text>
+              <text x="620" y="413" fill="#64748b" font-size="11">远程上传 → 现场 Share → 板拉取</text>
             </svg>
           </div>
         </figure>
@@ -407,44 +380,44 @@
       <div class="wrap">
         <div class="section-head">
           <span class="tag">Tools</span>
-          <h2>工具说明（都在 manager 里）</h2>
-          <p>不用再另装一套 TFTP/NFS 服务；控板与传文件共用配置与 WebUI。</p>
+          <h2>工具说明</h2>
+          <p>按角色拆开：接入 · 控对象 · 文件 · 远程 · 发现。</p>
         </div>
         <div class="product-grid">
           <article class="product-card bridge">
-            <h3>串口桥</h3>
-            <p class="sub">boards[] · COM / tty</p>
+            <h3>人的接入 · AI 的接口</h3>
+            <p class="sub">别跟控板后端混在一起</p>
             <ul>
-              <li>Web 终端 · Agent 发键 / 拉日志</li>
-              <li>无网阶段：BL2 / U-Boot / 内核</li>
-              <li>多板会话 · 自动跟随输出</li>
+              <li>人：Web 网页 · IDE · 入站 SSH</li>
+              <li>AI：Agent 接口（HTTP / WS）</li>
+              <li>本地直连或 Tunnel 远程，同一套</li>
             </ul>
           </article>
           <article class="product-card bridge">
-            <h3>SSH Link + 入站 SSH</h3>
-            <p class="sub">出站连板 · 共享入站口</p>
+            <h3>串口桥 · SSH Link</h3>
+            <p class="sub">控受控板 / 受控主机</p>
             <ul>
-              <li>SSH Link：网口起来后高效 shell</li>
-              <li>入站：<code>ssh 板名@主机 -p 口</code></li>
-              <li>与 Web / Agent 同通道旁观</li>
+              <li>串口桥：COM/tty，无网可调</li>
+              <li>SSH Link：出站连板或主机</li>
+              <li>人机同会话旁观，不互斥</li>
             </ul>
           </article>
           <article class="product-card bridge">
             <h3>Share 共享目录</h3>
-            <p class="sub">{work}/share · 本仓扩展</p>
+            <p class="sub">{work}/share</p>
             <ul>
-              <li>人：网页拖拽多文件上传</li>
-              <li>AI：HTTP 分片上传</li>
-              <li>板：TFTP / NFS / HTTP 拉取</li>
+              <li>人网页上传 · AI HTTP 上传</li>
+              <li>板：TFTP / NFS / HTTP 拉</li>
+              <li>上传一次，按启动阶段换协议</li>
             </ul>
           </article>
           <article class="product-card relay">
-            <h3>继电器 · Tunnel · 发现</h3>
-            <p class="sub">电源 / 远程 / 局域网</p>
+            <h3>Tunnel · 发现扫描 · 继电器</h3>
+            <p class="sub">远程 · 找机器 · 电源</p>
             <ul>
+              <li>Tunnel：人与 AI 远程操控</li>
+              <li>发现：UDP + windows_manager 扫描</li>
               <li>继电器：电源 · 重启 · Upgrade</li>
-              <li>Tunnel：可选映到公网</li>
-              <li>UDP 发现 · skills · /help</li>
             </ul>
           </article>
         </div>
@@ -463,7 +436,7 @@
             <div class="dl-icon bridge">S</div>
             <div class="dl-body">
               <strong>ssh-bridge Releases</strong>
-              <span>Windows zip · Linux deb/rpm · 最新构建</span>
+              <span>Windows zip · Linux deb/rpm</span>
             </div>
             <div class="dl-action">
               <span class="status-pill ready">公开仓</span>
@@ -474,7 +447,7 @@
             <div class="dl-icon bridge">G</div>
             <div class="dl-body">
               <strong>组织 EADK-SSH</strong>
-              <span>产品主页与仓库入口</span>
+              <span>主页与仓库入口</span>
             </div>
             <div class="dl-action">
               <a class="btn btn-download" href="https://github.com/orgs/EADK-SSH/repositories" target="_blank" rel="noreferrer">浏览仓库</a>
